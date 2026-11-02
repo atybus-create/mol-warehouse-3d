@@ -27,6 +27,8 @@ for(let i=1;i<=6;i++)rack("11-"+String(i).padStart(2,"0")+"-XX",45,25+(6-i)*3.2,
 // Prawa: blok 12 do 36, w poziomych parach, a nie jeden ciagly pas
 for(let n=12;n<=35;n++){const index=n-12, pair=Math.floor(index/2), z=25+pair*7.4+(index%2)*2.4;for(let c=1;c<=4;c++)rack(String(n).padStart(2,"0")+"-"+String(c).padStart(2,"0")+"-XX",55+(c-1)*5.9,z,5.1,1.6,"rack","Prawa");}
 for(let i=0;i<4;i++)rack("36-"+["01-XX","02-XX","07-XX","08"][i],55+i*5.9,113,5,2,"rack","Prawa dolna");
+// Rzad 37 (na dole przy czesci socjalnej): 37-01-01 do 37-01-05
+for(let c=1;c<=5;c++)rack("37-01-"+String(c).padStart(2,"0"),30+(c-1)*3.7,118,3.2,1.7,"rack","Pas 37");
 // blok 41, kolejność z PDF
 const m41=["41-01-01","41-01-02","41-01-03","41-02-01","41-03-01","41-03-02","41-04-01","41-04-02","41-05-01","41-05-02","41-06-01","41-06-02","41-06-03","41-07-01","41-07-02","41-07-03","41-07-04"];m41.forEach((id,i)=>rack(id,39+(i%2)*3.6,48+Math.floor(i/2)*4,2.7,1.7,"rack","Środek 41"));
 // dolna lewa, rzędy 50-63; dwa długie bloki 50/51,52/53 itd
