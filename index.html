@@ -1,1 +1,68 @@
-
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOL — Magazyn 3D</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#e8eaed;background:#171a1f;--panel:#20242a;--line:#3a414a;--accent:#f2a331}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden}
+.app{display:grid;grid-template-columns:310px 1fr;grid-template-rows:72px 1fr;width:100vw;height:100vh}
+header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:#1d2025;border-bottom:1px solid var(--line);position:relative}
+header:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:4px;background:repeating-linear-gradient(135deg,#f2a331 0 16px,#20242a 16px 32px)}
+.eyebrow{margin:0 0 2px;font-size:11px;letter-spacing:.16em;color:#89919b}.title{margin:0;font:650 20px Bahnschrift,"Arial Narrow",sans-serif}
+.status{font-size:12px;color:#ffd58c}.status:before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:8px}
+aside{grid-column:1;grid-row:2;overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:18px}
+section{padding-bottom:17px;margin-bottom:17px;border-bottom:1px solid var(--line)}section:last-child{border:0}
+h2{margin:0 0 10px;font:600 12px Bahnschrift,"Arial Narrow",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:#aeb4bd}
+button,select{font:inherit;color:#e8eaed;background:#2a3038;border:1px solid #48515c;border-radius:7px;padding:9px;cursor:pointer}
+button:hover{border-color:#f2a331}.buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.active,.primary{background:#f2a331;color:#15181c;border-color:#f2a331;font-weight:700}
+.primary{width:100%;margin-top:8px}select{width:100%;font-size:12px}
+label{display:flex;gap:9px;align-items:center;padding:6px 0;font-size:13px}input{accent-color:#f2a331}
+.help{font-size:12px;line-height:1.45;color:#aeb4bd}.card{padding:11px;background:#181c21;border:1px solid #414955;border-radius:8px;font-size:12px}.card strong{display:block;font-size:14px;margin-bottom:4px}
+.notice{padding:11px;border:1px solid #805d23;background:#262014;border-radius:8px;color:#d9c49d;font-size:11px;line-height:1.45}.notice strong{display:block;color:#ffcd72;margin-bottom:4px}
+main{position:relative;grid-column:2;grid-row:2;min-width:0;min-height:0;background:#16191e}canvas{display:block;width:100%;height:100%}
+.hint{position:absolute;left:13px;bottom:11px;padding:7px 10px;background:#111820dd;border:1px solid #44505e;border-radius:7px;color:#aeb4bd;font-size:11px;pointer-events:none}
+@media(max-width:800px){.app{grid-template-columns:1fr;grid-template-rows:60px 1fr 250px}header{grid-row:1}.status{display:none}main{grid-column:1;grid-row:2}aside{grid-column:1;grid-row:3;border-right:0;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr 1fr;gap:12px}section{margin:0}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div class="app">
+<header><div><p class="eyebrow">MOL / ESTYL</p><h1 class="title">Magazyn 3D — PoC</h1></div><div class="status">model parametryczny</div></header>
+<aside>
+<section><h2>Widok</h2><div class="buttons"><button id="v3" class="active">3D</button><button id="vt">Z góry</button><button id="vr">Reset</button></div></section>
+<section><h2>Warstwy</h2><label><input id="p" type="checkbox" checked> Plan 2D</label><label><input id="w" type="checkbox" checked> Ściany 3D</label><label><input id="r" type="checkbox" checked> Regały 3D</label></section>
+<section><h2>Kompletacja</h2><p class="help">Trasy demonstracyjne prowadzą alejkami pomiędzy regałami.</p><select id="route"><option value="">— bez trasy —</option><option value="mix">MIX: 01 → 15 → 29 → PAK</option><option value="left">50 → 55 → 61 → PAK</option><option value="right">18 → 24 → 34 → PAK</option></select><button id="fit" class="primary">Pokaż całą trasę</button></section>
+<section><h2>Wybrany obiekt</h2><div class="card" id="sel"><strong>Brak</strong>Kliknij regał w modelu.</div></section>
+<section class="notice"><strong>Skala wizualna</strong>PDF nie podaje jednego wymiaru referencyjnego, dlatego proporcje są odtworzone z planu, ale wymagają kalibracji jednym rzeczywistym pomiarem.</section>
+</aside>
+<main><canvas id="c"></canvas><div class="hint">LPM obrót · rolka zoom · PPM przesunięcie · klik wybór regału</div></main>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+const canvas=document.querySelector('#c'),ren=new THREE.WebGLRenderer({canvas,antialias:true});
+ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.shadowMap.enabled=true;ren.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x171a1f);scene.fog=new THREE.Fog(0x171a1f,44,86);
+const cam=new THREE.PerspectiveCamera(48,1,.1,160);cam.position.set(27,31,31);
+const ctl=new OrbitControls(cam,canvas);ctl.enableDamping=true;ctl.target.set(0,0,-4);ctl.maxPolarAngle=Math.PI*.48;ctl.minDistance=9;ctl.maxDistance=85;
+scene.add(new THREE.HemisphereLight(0xe6f1ff,0x202630,2.1));const dl=new THREE.DirectionalLight(0xffffff,2.5);dl.position.set(18,35,15);scene.add(dl);
+const P={x:110,y:125,w:895,h:1860,W:24,H:49.88};const pw=(x,y)=>({x:((x-P.x)/P.w-.5)*P.W,z:((y-P.y)/P.h-.5)*P.H});
+const rect=(a,b,c,d)=>{let q=pw(a,b),s=pw(c,d);return{x:(q.x+s.x)/2,z:(q.z+s.z)/2,w:Math.abs(s.x-q.x),d:Math.abs(s.z-q.z)}};
+const walls=[[130,1965,130,138],[985,1463,985,138],[135,140,982,140],[631,1326,631,588],[356,243,982,243],[135,1962,538,1962],[728,1736,728,1460],[735,1460,963,1463],[756,1326,977,1323],[541,208,754,208],[476,326,656,326],[293,141,295,248],[544,141,546,239],[631,472,633,562],[135,241,223,244],[534,1961,538,1882],[633,523,633,444],[692,328,694,249],[532,1805,610,1803],[630,249,631,324],[692,249,762,249]];
+const racks=[['01-02',165,323,405,372,'S1'],['03-04',165,404,405,453,'S1'],['05-06',165,486,405,535,'S1'],['07-08',165,568,405,617,'S1'],['09-10',165,650,405,699,'S1'],['41',535,588,630,800,'CENTRUM'],['50-51',145,742,385,825,'LEWA'],['52-53',145,850,385,934,'LEWA'],['54-55',145,961,385,1045,'LEWA'],['56-57',145,1073,385,1158,'LEWA'],['58-59',145,1185,385,1270,'LEWA'],['60-61',145,1298,385,1385,'LEWA'],['62-63',145,1412,385,1498,'LEWA'],['12-13',700,343,925,397,'PRAWA'],['14-15',700,421,925,475,'PRAWA'],['16-17',700,499,925,553,'PRAWA'],['18-19',700,577,925,631,'PRAWA'],['20-21',700,655,925,709,'PRAWA'],['22-23',700,733,925,787,'PRAWA'],['24-25',700,811,925,865,'PRAWA'],['26-27',700,889,925,943,'PRAWA'],['28-29',700,967,925,1021,'PRAWA'],['30-31',700,1045,925,1099,'PRAWA'],['32-33',700,1123,925,1177,'PRAWA'],['34-35',700,1201,925,1255,'PRAWA'],['36',700,1280,925,1320,'PRAWA'],['PAKOWANIE',175,270,405,305,'PAK'],['PRZYJĘCIA',850,245,940,320,'IN']];
+const floor=new THREE.Group();scene.add(floor);const slab=new THREE.Mesh(new THREE.BoxGeometry(P.W,.24,P.H),new THREE.MeshStandardMaterial({color:0xcbd5e1,roughness:.95}));slab.position.y=-.14;floor.add(slab);
+function tex(){const c=document.createElement('canvas');c.width=900;c.height=1860;const g=c.getContext('2d'),X=x=>(x-P.x)*c.width/P.w,Y=y=>(y-P.y)*c.height/P.h,F=(a,b,d,e,col)=>{g.fillStyle=col;g.fillRect(X(a),Y(b),X(d)-X(a),Y(e)-Y(b))};g.fillStyle='#f3f4f6';g.fillRect(0,0,c.width,c.height);F(130,300,630,720,'#f8e7dc');F(130,720,410,1810,'#e3f2d9');F(650,300,985,1325,'#f1d5ed');F(130,1810,540,1965,'#d5edf6');F(755,1325,985,1463,'#ffe95a');F(420,885,632,1327,'#17191d');F(455,1435,610,1805,'#ffe95a');g.strokeStyle='#6b7280';g.lineWidth=2;g.font='18px Arial';g.textAlign='center';g.textBaseline='middle';racks.forEach(([id,a,b,d,e])=>{g.fillStyle='#ffffffdd';g.fillRect(X(a),Y(b),X(d)-X(a),Y(e)-Y(b));g.strokeRect(X(a),Y(b),X(d)-X(a),Y(e)-Y(b));g.fillStyle='#222';g.fillText(id,(X(a)+X(d))/2,(Y(b)+Y(e))/2)});g.strokeStyle='#111';g.lineWidth=7;walls.forEach(([a,b,d,e])=>{g.beginPath();g.moveTo(X(a),Y(b));g.lineTo(X(d),Y(e));g.stroke()});return new THREE.CanvasTexture(c)}
+const plan=new THREE.Mesh(new THREE.PlaneGeometry(P.W,P.H),new THREE.MeshBasicMaterial({map:tex(),transparent:true,opacity:.86,depthWrite:false}));plan.rotation.x=-Math.PI/2;plan.position.y=.015;floor.add(plan);
+const wg=new THREE.Group();scene.add(wg);const wm=new THREE.MeshStandardMaterial({color:0x20242b,roughness:.8});walls.forEach(s=>{let a=pw(s[0],s[1]),b=pw(s[2],s[3]),dx=b.x-a.x,dz=b.z-a.z,L=Math.hypot(dx,dz),m=new THREE.Mesh(new THREE.BoxGeometry(L,3,.16),wm);m.position.set((a.x+b.x)/2,1.5,(a.z+b.z)/2);m.rotation.y=-Math.atan2(dz,dx);wg.add(m)});
+let soc=rect(420,885,632,1327),sm=new THREE.Mesh(new THREE.BoxGeometry(soc.w,.12,soc.d),new THREE.MeshStandardMaterial({color:0x111316}));sm.position.set(soc.x,.08,soc.z);scene.add(sm);
+const rg=new THREE.Group(),hits=[];scene.add(rg);const cols={S1:0xd9915e,LEWA:0x8fb37b,PRAWA:0xb98abd,CENTRUM:0x94a3b8,PAK:0x94a3b8,IN:0x94a3b8};racks.forEach(v=>{let q=rect(v[1],v[2],v[3],v[4]),h=(v[0]=='PAKOWANIE'||v[0]=='PRZYJĘCIA')?1.15:2.15,m=new THREE.Mesh(new THREE.BoxGeometry(q.w*.92,h,Math.max(.22,q.d*.72)),new THREE.MeshStandardMaterial({color:cols[v[5]],roughness:.62}));m.position.set(q.x,h/2,q.z);m.userData={id:v[0],zone:v[5]};rg.add(m);hits.push(m)});
+const routeG=new THREE.Group();scene.add(routeG);const routes={mix:[[180,290],[250,345],[650,345],[760,445],[760,1010],[610,1010],[610,300],[300,300]],left:[[190,760],[190,1010],[190,1360],[560,1360],[560,315],[280,315]],right:[[690,590],[680,820],[680,1215],[625,1215],[625,320],[290,320]]};
+function route(k){while(routeG.children.length)routeG.remove(routeG.children[0]);if(!routes[k])return;let pts=routes[k].map(v=>{let a=pw(v[0],v[1]);return new THREE.Vector3(a.x,.2,a.z)});routeG.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xf2a331})));pts.forEach((p,i)=>{let x=new THREE.Mesh(new THREE.SphereGeometry(.18,12,8),new THREE.MeshStandardMaterial({color:i==0?0xf6c945:i==pts.length-1?0xf59e0b:0xffffff}));x.position.copy(p);x.position.y=.28;routeG.add(x)})}
+const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let selected,down;canvas.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);canvas.addEventListener('pointerup',e=>{if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>6)return;let b=canvas.getBoundingClientRect();mouse.x=2*(e.clientX-b.left)/b.width-1;mouse.y=1-2*(e.clientY-b.top)/b.height;ray.setFromCamera(mouse,cam);let h=ray.intersectObjects(hits)[0];if(!h)return;if(selected)selected.material.emissive.setHex(0);selected=h.object;selected.material.emissive.setHex(0x4b3412);document.querySelector('#sel').innerHTML='<strong>'+selected.userData.id+'</strong>Strefa: '+selected.userData.zone});
+const v3=document.querySelector('#v3'),vt=document.querySelector('#vt');function act(a){v3.classList.remove('active');vt.classList.remove('active');a.classList.add('active')}v3.onclick=()=>{cam.position.set(27,31,31);ctl.target.set(0,0,-4);act(v3)};vt.onclick=()=>{cam.position.set(0,49,.01);ctl.target.set(0,0,0);act(vt)};document.querySelector('#vr').onclick=v3.onclick;document.querySelector('#p').onchange=e=>plan.visible=e.target.checked;document.querySelector('#w').onchange=e=>wg.visible=e.target.checked;document.querySelector('#r').onchange=e=>rg.visible=e.target.checked;document.querySelector('#route').onchange=e=>route(e.target.value);document.querySelector('#fit').onclick=()=>{cam.position.set(0,46,18);ctl.target.set(0,0,1)};
+function size(){let b=canvas.parentElement.getBoundingClientRect();ren.setSize(b.width,b.height,false);cam.aspect=b.width/b.height;cam.updateProjectionMatrix()}addEventListener('resize',size);size();(function loop(){ctl.update();ren.render(scene,cam);requestAnimationFrame(loop)})();
+</script>
+</body>
+</html>
